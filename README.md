@@ -48,7 +48,7 @@ python PINN-for-Synchronous/estimate_machine_D.py --iterations 4000
 
 Results are written to `results/D_estimates.csv`. A GTX 950M / Maxwell optional install is in `requirements-cu118.txt`; current official CUDA wheels often omit that GPU, so CPU training is the supported default here.
 
-To run the same inverse swing-equation PINN in **MATLAB** (no extra toolboxes; also works in Octave), from the MATLAB command window:
+To run the same inverse swing-equation PINN in **MATLAB** (no extra toolboxes; also works in Octave), open the Turkish Live Script [`PINN-for-Synchronous/matlab/PINN_Salinim_D_Tahmini.m`](PINN-for-Synchronous/matlab/PINN_Salinim_D_Tahmini.m) in the Live Editor. For a batch run from the command window:
 
 ```
 cd PINN-for-Synchronous/matlab

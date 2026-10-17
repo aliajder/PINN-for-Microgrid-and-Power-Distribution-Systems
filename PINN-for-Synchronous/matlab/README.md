@@ -2,6 +2,17 @@
 
 Toolbox gerekmez. MATLAB R2016b+ veya GNU Octave 8 ile çalışır.
 
+## Live Script (önerilen)
+
+MATLAB'de `PINN_Salinim_D_Tahmini.m` dosyasını Live Editor ile açın (R2025a+ düz metin Live Script; daha eski sürümde dosyaya sağ tıklayıp **Open as Live Script**). Tüm başlıklar, formüller ve açıklamalar Türkçedir.
+
+```matlab
+cd PINN-for-Synchronous/matlab
+edit PINN_Salinim_D_Tahmini.m
+```
+
+## Toplu tahmin
+
 ```matlab
 cd PINN-for-Synchronous/matlab
 runEstimateMachineD
