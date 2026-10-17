@@ -38,6 +38,16 @@
 # HOW TO USE
 The example codes for both sync- and inverter-based DERs are [SYNC_MAIN.py](./PINN-for-Synchronous/SYNC_MAIN.py) and [PID_MAIN.py](./PINN-for-inverter-control-loop/PID_MAIN.py).
 
+Install CPU dependencies with `pip install -r requirements.txt`. DeepXDE uses PyTorch (`DDE_BACKEND=pytorch`). CUDA is used automatically when `torch.cuda.is_available()` is true.
+
+To estimate damping `D` for the labeled RTDS machines (`data/synchronous-machine/1208_*.csv`) with the swing equation PINN:
+
+```
+python PINN-for-Synchronous/estimate_machine_D.py --iterations 4000
+```
+
+Results are written to `results/D_estimates.csv`. A GTX 950M / Maxwell optional install is in `requirements-cu118.txt`; current official CUDA wheels often omit that GPU, so CPU training is the supported default here.
+
 Before running, plz remember to install Torch and CUDA correctly.
 
 If any path errors occur, please check **both the absolute and relative paths** of your running environment, if the error message is related to the path for storing the model, please **create a folder named `save_model/` on your own and add the path** accordingly.

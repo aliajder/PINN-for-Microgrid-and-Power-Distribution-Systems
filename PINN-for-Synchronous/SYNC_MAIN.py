@@ -1,147 +1,153 @@
-import pandas as pd
+import os
+
+os.environ.setdefault("DDE_BACKEND", "pytorch")
+
+import datetime
+import re
+
 import deepxde as dde
 import numpy as np
-import re
-import datetime
-import os
-import time
-import matplotlib.pyplot as plt
-# from deepxde.backend import torch
-# dde.backend.set_default_backend('pytorch')
+import pandas as pd
 
-class SYNC():
+REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+HD_FROM_NAME = re.compile(r"H(?P<H>[0-9]+(?:\.[0-9]+)?)D(?P<D>[0-9]+(?:\.[0-9]+)?)", re.I)
+
+
+def resolve_data_path(path):
+    if path is None:
+        return path
+    if os.path.isabs(path) and os.path.exists(path):
+        return path
+    candidates = [
+        path,
+        os.path.join(os.getcwd(), path),
+        os.path.join(REPO_ROOT, path),
+        os.path.join(REPO_ROOT, "data", "synchronous-machine", os.path.basename(path)),
+    ]
+    for candidate in candidates:
+        if os.path.exists(candidate):
+            return os.path.abspath(candidate)
+    raise FileNotFoundError("Could not find data file: %s" % path)
+
+
+def parse_true_hd(path):
+    name = os.path.basename(path)
+    match = HD_FROM_NAME.search(name)
+    if not match:
+        return None, None
+    return float(match.group("H")), float(match.group("D"))
+
+
+def last_short_name(column):
+    return str(column).split("|")[-1]
+
+
+class SYNC:
     def __init__(self, path=None, date=None, index=None, **kwargs):
-
-        self.st = 0.
-        self.et = 1.
+        self.st = 0.0
+        self.et = 1.0
         self.num_domain = 0
         self.num_boundary = 0
         self.num_test = None
+        self.prompt_on_dat_conflict = False
+        self.output_dir = os.path.join(REPO_ROOT, "results")
+        self.save_model_dir = os.path.join(REPO_ROOT, "save_model")
 
-        '''
-        输入的维度：时间t + input transform
-        '''
         self.net = dde.nn.FNN([1] + [100] * 3 + [3], "swish", "Glorot uniform")
-
-
         self.method = "adam"
         self.lr = 0.0001
         self.period = 200
         self.iterations = 20000
 
-        '''
-        基本路径设置
-        '''
         self.path = path
         self.date = date
         self.index = index
-        '''
-        保存数据，同时防止数据冲突
-        '''
+
         if date is None:
             now = datetime.datetime.now()
             self.date = now.strftime("%m%d")
-        if index is None:
-            self.fnamevar_path = "SYNC_variables_" + self.date + ".dat"
-        else:
-            self.fnamevar_path = "SYNC_variables_" + self.date + "_" + str(index) + ".dat"
 
         self.set_variable()
         self.__dict__.update(kwargs)
         self.iterations = int(self.iterations)
+
+        os.makedirs(self.output_dir, exist_ok=True)
+        os.makedirs(self.save_model_dir, exist_ok=True)
+
+        if index is None:
+            self.fnamevar_path = os.path.join(self.output_dir, "SYNC_variables_" + self.date + ".dat")
+        else:
+            self.fnamevar_path = os.path.join(
+                self.output_dir, "SYNC_variables_" + self.date + "_" + str(index) + ".dat"
+            )
         self.check_dat_file()
 
-        '''
-        读取数据
-        '''
-        input_data = pd.read_csv(path)
+        self.path = resolve_data_path(path)
+        input_data = pd.read_csv(self.path)
         step_time = input_data.Time[1] - input_data.Time[0]
         input_data.Time -= step_time * int(input_data.shape[0] * self.st)
-        input_data = input_data[int(input_data.shape[0]*self.st): int(input_data.shape[0]*self.et)]
-
+        input_data = input_data[int(input_data.shape[0] * self.st) : int(input_data.shape[0] * self.et)]
         self.input_data = input_data
-
         self.rename_sync_csv()
 
         H = dde.Variable(self.init_H)
         D = dde.Variable(self.init_D)
-
         self.variable_list = [H, D]
 
-        '''
-        这里修改微分方程及其表达形式
-        对于一个PI环节而言标准表达式为(Input) * Kp + (Input) * Ki * 1/s = (Output)
-        i.e., Kp * s * Input + Ki * Input = s * Output
-        '''
-
         def SYNC_ode(x, y):
-
             Tm, w, Te = y[:, 0:1], y[:, 1:2], y[:, 2:3]
-
             dw_dt = dde.grad.jacobian(y, x, i=1)
-
-
-            '''
-                    这里修改微分方程及其表达形式
-            '''
-            return [
-                Tm-Te - 2*H*dw_dt - D*(w-1)
-            ]
-
-
+            return [Tm - Te - 2 * H * dw_dt - D * (w - 1)]
 
         self.pi_ode = SYNC_ode
 
-    '''
-    确认dat文件不冲突
-    '''
     def check_dat_file(self):
-        if os.path.exists(self.fnamevar_path):
-            new_index = input(
-                "The dat file already exists, please enter a new index to modify, or press Enter to continue")
-            if new_index != '':
-                self.index = new_index
-                self.fnamevar_path = "SYNC_variables_" + self.date + "_" + str(new_index) + ".dat"
-    
+        if not os.path.exists(self.fnamevar_path):
+            return
+        if not self.prompt_on_dat_conflict:
+            return
+        new_index = input(
+            "The dat file already exists, please enter a new index to modify, or press Enter to continue"
+        )
+        if new_index != "":
+            self.index = new_index
+            self.fnamevar_path = os.path.join(
+                self.output_dir, "SYNC_variables_" + self.date + "_" + str(new_index) + ".dat"
+            )
+
     def rename_sync_csv(self):
-        # dict_col_sync = {
-        #     'Time': 'Time',
-        #     'Tm': 'Tm',
-        #     'WPU': 'w',
-        #     'Te_sync': 'Te',
-        #     'w_sync': 'W_waiting_for_verification'
-        #     }
-        # self.input_data.rename(columns=lambda x: dict_col_sync[x.split('|')[-1]], inplace=True)
-        # col_name = list(dict_col_sync.values())
-        # col_name.remove('W_waiting_for_verification')
-        # self.ver_w = self.input_data['W_waiting_for_verification']
-        # self.input_data = self.input_data[col_name]
-        # self.input_data.set_index('Time', inplace=True)
+        shorts = {last_short_name(col): col for col in self.input_data.columns}
 
-        # f_info = self.path.split('/')[-1].replace('.csv', '').split('_')
-        # self.sync_case = f_info[1]
-        # self.real_value_list = re.findall(r'[0-9]+\.?[0-9]*',f_info[2])
+        def pick(*names):
+            for name in names:
+                if name in shorts:
+                    return shorts[name]
+            return None
 
-        dict_col_sync = {
-            'Time': 'Time',
-            'Tm': 'Tm',
-            'TESTSPDOUT': 'w',
-            'TESTTELECT': 'Te',
-            }
-        self.input_data.rename(columns=lambda x: dict_col_sync[x.split('|')[-1]], inplace=True)
-        col_name = list(dict_col_sync.values())
-        self.input_data = self.input_data[col_name]
-        self.input_data.set_index('Time', inplace=True)
+        time_col = pick("Time")
+        tm_col = pick("Tm")
+        w_col = pick("w_sync", "WPU", "TESTSPDOUT", "w")
+        te_col = pick("Te_sync", "TESTTELECT", "Te")
+        missing = [label for label, col in (("Time", time_col), ("Tm", tm_col), ("w", w_col), ("Te", te_col)) if col is None]
+        if missing:
+            raise KeyError("Missing columns %s in %s" % (missing, self.path))
 
-        self.real_value_list = [1.5, 0.25]
-    
+        renamed = self.input_data[[time_col, tm_col, w_col, te_col]].copy()
+        renamed.columns = ["Time", "Tm", "w", "Te"]
+        renamed.set_index("Time", inplace=True)
+        self.input_data = renamed
+
+        true_H, true_D = parse_true_hd(self.path)
+        self.true_H = true_H
+        self.true_D = true_D
+        self.real_value_list = [true_H, true_D]
+
     def set_variable(self):
-        self.init_H = 1.
-        self.init_D = 1.
-    
+        self.init_H = 1.0
+        self.init_D = 1.0
 
     def build(self, transform=None, **kwargs):
-        if transform == ('input' or 'all'):
+        if transform in ("input", "all"):
             self.net = dde.nn.FNN([6] + [100] * 3 + [3], "tanh", "Glorot uniform")
         self.__dict__.update(kwargs)
         input_data = self.input_data
@@ -150,48 +156,30 @@ class SYNC():
         y = input_data.to_numpy()
         observe_t = x.reshape(-1, 1)
         n = y.shape[0]
-        y_real = y
+
         def boundary(_, on_initial):
             return on_initial
-        '''
-        
-        '''
+
         observe_y0 = dde.icbc.PointSetBC(observe_t, y[:, 0:1], component=0)
         observe_y1 = dde.icbc.PointSetBC(observe_t, y[:, 1:2], component=1)
         observe_y2 = dde.icbc.PointSetBC(observe_t, y[:, 2:3], component=2)
-
         ic0 = dde.icbc.IC(geom, lambda X: y[0, 0], boundary, component=0)
         ic1 = dde.icbc.IC(geom, lambda X: y[0, 1], boundary, component=1)
         ic2 = dde.icbc.IC(geom, lambda X: y[0, 2], boundary, component=2)
 
-
-        '''
-            这里修改观测值，选择给神经网络喂哪部分的数据
-        '''
-        
         data = dde.data.PDE(
             geom,
             self.pi_ode,
             [observe_y0, observe_y1, observe_y2, ic0, ic1, ic2],
-            # [],
             anchors=observe_t,
         )
 
         if transform is not None:
             from deepxde.backend import torch
-            tran_in = False
-            tran_out = False
-            if transform == 'input':
-                tran_in = True
-            if transform == 'output':
-                tran_out = True
-            if transform == 'all':
-                tran_in = True
-                tran_out = True
 
-            '''
-            这里是输入转换: Input transform
-            '''
+            tran_in = transform in ("input", "all")
+            tran_out = transform in ("output", "all")
+
             def feature_transform(t):
                 t = 0.01 * t
                 return torch.concat(
@@ -209,22 +197,13 @@ class SYNC():
             data_t = observe_t
             data_y = y
 
-            '''
-            这里是输出转换: Output transform
-            '''
-            def output_transform(t, y):
+            def output_transform(t, y_nn):
                 idx = n - 1
-                
                 k = (data_y[idx] - data_y[0]) / (data_t[idx] - data_t[0])
-                b = (data_t[idx] * data_y[0] - data_t[0] * data_y[idx]) / (
-                        data_t[idx] - data_t[0]
-                )
+                b = (data_t[idx] * data_y[0] - data_t[0] * data_y[idx]) / (data_t[idx] - data_t[0])
                 linear = torch.as_tensor(k) * t + torch.as_tensor(b)
                 factor = torch.tanh(t) * torch.tanh(idx - t)
-                y2 = linear + factor * torch.Tensor([1, 1, 1]) * y
-                # y2[:4, :] = torch.Tensor(y_real[:4, :])
-                # y2[-5:, :] = torch.Tensor(y_real[-5:, :])
-                return y2
+                return linear + factor * torch.as_tensor([1.0, 1.0, 1.0]) * y_nn
 
             if tran_in:
                 self.net.apply_feature_transform(feature_transform)
@@ -232,60 +211,52 @@ class SYNC():
                 self.net.apply_output_transform(output_transform)
 
         model = dde.Model(data, self.net)
-        model.compile(self.method, lr=self.lr,
-                    #    loss_weights=[1,10,1,1,1], 
-                       external_trainable_variables=self.variable_list)
-
+        model.compile(self.method, lr=self.lr, external_trainable_variables=self.variable_list)
         self.model = model
         self.x = x
         self.y = y
         self.observe_t = observe_t
 
     def train(self):
-        fnamevar = self.fnamevar_path
-        variable = dde.callbacks.VariableValue(self.variable_list, period=self.period, filename=fnamevar)
+        os.makedirs(os.path.dirname(self.fnamevar_path) or ".", exist_ok=True)
+        os.makedirs(self.save_model_dir, exist_ok=True)
+        variable = dde.callbacks.VariableValue(self.variable_list, period=self.period, filename=self.fnamevar_path)
         if self.index is None:
-            check_point_path = 'save_model/model_' + self.date + '.ckpt'
+            check_point_path = os.path.join(self.save_model_dir, "model_" + self.date + ".ckpt")
         else:
-            check_point_path = 'save_model/model_' + self.date + '_' + str(self.index) + '.ckpt'
-        checker= dde.callbacks.ModelCheckpoint(check_point_path, save_better_only = True, period = 50000)
+            check_point_path = os.path.join(
+                self.save_model_dir, "model_" + self.date + "_" + str(self.index) + ".ckpt"
+            )
+        checker = dde.callbacks.ModelCheckpoint(check_point_path, save_better_only=True, period=50000)
         self.model.train(iterations=self.iterations, callbacks=[variable, checker])
 
-    def load_model(self, model_path, load_fnamevar_path = None):
+    def read_variable_history(self, load_fnamevar_path=None):
+        path = load_fnamevar_path or self.fnamevar_path
+        lines = open(path, "r").readlines()
+        chat = np.array(
+            [
+                np.fromstring(
+                    min(re.findall(re.escape("[") + "(.*?)" + re.escape("]"), line), key=len),
+                    sep=",",
+                )
+                for line in lines
+            ]
+        )
+        return chat
+
+    def latest_variables(self, load_fnamevar_path=None):
+        chat = self.read_variable_history(load_fnamevar_path)
+        return float(chat[-1, 0]), float(chat[-1, 1])
+
+    def load_model(self, model_path, load_fnamevar_path=None):
         if load_fnamevar_path is None:
             try:
-                load_fnamevar_path = self.fnamevar_path
-                lines = open(load_fnamevar_path, "r").readlines()
-                Chat = np.array(
-                    [
-                        np.fromstring(
-                            min(re.findall(re.escape("[") + "(.*?)" + re.escape("]"), line), key=len),
-                            sep=",",
-                        )
-                        for line in lines
-                    ]
-                )
-                self.H = Chat[-1, 0]
-                self.D = Chat[-1, 1]
-
-                print('Load variable values from ' + load_fnamevar_path)
-
-            except:
+                self.H, self.D = self.latest_variables(self.fnamevar_path)
+                print("Load variable values from " + self.fnamevar_path)
+            except OSError:
                 pass
         else:
-            lines = open(load_fnamevar_path, "r").readlines()
-            Chat = np.array(
-                [
-                    np.fromstring(
-                        min(re.findall(re.escape("[") + "(.*?)" + re.escape("]"), line), key=len),
-                        sep=",",
-                    )
-                    for line in lines
-                ]
-            )
-            self.init_H = Chat[-1, 0]
-            self.init_D = Chat[-1, 1]
-
+            self.init_H, self.init_D = self.latest_variables(load_fnamevar_path)
 
         H = dde.Variable(self.init_H)
         D = dde.Variable(self.init_D)
@@ -295,27 +266,12 @@ class SYNC():
 
 
 if __name__ == "__main__":
-
-    input_data_path = 'data/synchronous-machine/927testforTe2.csv'
-    microgird = SYNC(path=input_data_path,
-                    st=0.2,
-                    et=0.5,
-                    index = 'TransAll')
-
-    # # microgird.build()
-    '''
-    The best performance appears under [6] + [50] * 3 + [3] NN structure with Flt events during operation
-    '''
-    microgird.build(transform='all',
-                    net=dde.nn.FNN([6] + [50] * 3 + [3], "swish", "Glorot uniform"),
-                    lr=1e-3,
-                    iterations=10000000)
-    '''
-    reload model from the existing traing, uncomment this line
-    '''
-    # microgird.load_model('save_model/model_testNone.ckpt-200000.pt',
-    #                      load_fnamevar_path = 'PI_variables_ModelSave_0301.dat')
+    input_data_path = os.path.join(REPO_ROOT, "data", "synchronous-machine", "927testforTe2.csv")
+    microgird = SYNC(path=input_data_path, st=0.2, et=0.5, index="TransAll")
+    microgird.build(
+        transform="all",
+        net=dde.nn.FNN([6] + [50] * 3 + [3], "swish", "Glorot uniform"),
+        lr=1e-3,
+        iterations=4000,
+    )
     microgird.train()
-    # print(microgird.input_data.shape)
-    # y_hat = microgird.model.predict(microgird.observe_t)
-    # plt.plot(y_hat, microgird.observe_t)

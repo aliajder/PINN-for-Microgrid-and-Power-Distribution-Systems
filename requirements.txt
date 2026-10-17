@@ -1,0 +1,6 @@
+# CPU install (this repo's default verification path)
+torch
+deepxde
+pandas
+numpy
+matplotlib
