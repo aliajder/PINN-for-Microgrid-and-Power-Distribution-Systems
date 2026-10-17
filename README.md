@@ -48,6 +48,15 @@ python PINN-for-Synchronous/estimate_machine_D.py --iterations 4000
 
 Results are written to `results/D_estimates.csv`. A GTX 950M / Maxwell optional install is in `requirements-cu118.txt`; current official CUDA wheels often omit that GPU, so CPU training is the supported default here.
 
+To run the same inverse swing-equation PINN in **MATLAB** (no extra toolboxes; also works in Octave), from the MATLAB command window:
+
+```
+cd PINN-for-Synchronous/matlab
+runEstimateMachineD
+```
+
+Optional arguments: `runEstimateMachineD('iterations', 4000, 'cases', {'SyncOn_H1.0D0.0'})`. MATLAB results go to `results/D_estimates_matlab.csv`.
+
 Before running, plz remember to install Torch and CUDA correctly.
 
 If any path errors occur, please check **both the absolute and relative paths** of your running environment, if the error message is related to the path for storing the model, please **create a folder named `save_model/` on your own and add the path** accordingly.

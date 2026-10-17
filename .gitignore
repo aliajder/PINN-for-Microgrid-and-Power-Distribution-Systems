@@ -1,5 +1,6 @@
 save_model/
 results/SYNC_variables_*.dat
+results/SYNC_variables_matlab_*.dat
 __pycache__/
 *.pyc
 .ipynb_checkpoints/
