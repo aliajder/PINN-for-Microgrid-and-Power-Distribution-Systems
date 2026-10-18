@@ -2,7 +2,7 @@ function results = runEstimateMachineD(varargin)
 %RUNESTIMATEMACHINED Swing-equation PINN D estimation (MATLAB / Octave).
 %
 %   runEstimateMachineD
-%   runEstimateMachineD('iterations', 4000)
+%   runEstimateMachineD('iterations', 2000, 'lbfgs', 5000)
 %   runEstimateMachineD('cases', {'SyncOn_H1.0D0.0', 'SyncOn_H1.5D0.25'})
 %
 % From MATLAB locally: add this folder to the path, then call this function.
@@ -30,7 +30,7 @@ for i = 1:nFiles
         t = t(1:opts.stride:end);
         Y = Y(1:opts.stride:end, :);
     end
-    trainOpts = struct('iterations', opts.iterations, 'lr', opts.lr, 'period', opts.period);
+    trainOpts = struct('iterations', opts.iterations, 'lbfgsIterations', opts.lbfgs, 'period', opts.period);
     [predH, predD, hist] = trainSwingPINN(t, Y, trainOpts);
     if isnan(trueD)
         relD = NaN;
@@ -85,7 +85,7 @@ end
 
 function opts = parseArgs(args, matlabDir, dataDir)
 opts.iterations = 1000;
-opts.lr = 1e-3;
+opts.lbfgs = 3000;
 opts.period = 200;
 opts.st = 0;
 opts.et = 1;
@@ -102,7 +102,7 @@ while i <= numel(args)
     val = args{i + 1};
     switch key
         case 'iterations', opts.iterations = val;
-        case 'lr', opts.lr = val;
+        case 'lbfgs', opts.lbfgs = val;
         case 'period', opts.period = val;
         case 'st', opts.st = val;
         case 'et', opts.et = val;

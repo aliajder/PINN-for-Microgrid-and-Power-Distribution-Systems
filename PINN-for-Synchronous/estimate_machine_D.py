@@ -48,6 +48,7 @@ def estimate_one(path, args):
         index=index,
         prompt_on_dat_conflict=False,
         period=args.period,
+        damping_ref=args.damping_ref,
     )
     model.build(
         transform="all",
@@ -76,6 +77,12 @@ def parse_args():
     parser.add_argument("--iterations", type=int, default=4000)
     parser.add_argument("--period", type=int, default=200)
     parser.add_argument("--lr", type=float, default=1e-3)
+    parser.add_argument(
+        "--damping-ref",
+        type=float,
+        default=0.0,
+        help="Damping torque = D*(w - damping_ref). The 1208_*.csv traces need 0.0.",
+    )
     parser.add_argument("--st", type=float, default=0.0)
     parser.add_argument("--et", type=float, default=1.0)
     parser.add_argument("--cases", nargs="*", default=None, help="Substring filters, e.g. SyncOn_H1.0D0.0")

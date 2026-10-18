@@ -4,3 +4,4 @@ results/SYNC_variables_matlab_*.dat
 __pycache__/
 *.pyc
 .ipynb_checkpoints/
+PINN-for-Synchronous/matlab/results/

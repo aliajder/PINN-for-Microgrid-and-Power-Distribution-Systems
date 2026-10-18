@@ -50,6 +50,9 @@ class SYNC:
         self.num_boundary = 0
         self.num_test = None
         self.prompt_on_dat_conflict = False
+        # Damping torque is D * (w - damping_ref). The labeled 1208_*.csv RTDS
+        # traces obey damping_ref = 0 (D * w); the original example data used 1.0.
+        self.damping_ref = 1.0
         self.output_dir = os.path.join(REPO_ROOT, "results")
         self.save_model_dir = os.path.join(REPO_ROOT, "save_model")
 
@@ -97,7 +100,7 @@ class SYNC:
         def SYNC_ode(x, y):
             Tm, w, Te = y[:, 0:1], y[:, 1:2], y[:, 2:3]
             dw_dt = dde.grad.jacobian(y, x, i=1)
-            return [Tm - Te - 2 * H * dw_dt - D * (w - 1)]
+            return [Tm - Te - 2 * H * dw_dt - D * (w - self.damping_ref)]
 
         self.pi_ode = SYNC_ode
 
