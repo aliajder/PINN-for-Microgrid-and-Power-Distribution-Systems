@@ -35,16 +35,38 @@ cd IEEE5Bus_Generator_HD/matlab
 setupGeneratorPaths
 run_all_tests          % 10 bağımsız test, outputs/test_report.csv
 run_generator_study    % outputs/generator_HD_estimates.csv
-% Gerçek Simulink kaydı için:
-simulinkLogToCsv(t, Pm_MW, Pe_MW, f_Hz, S_base_MW, 50, 'gen.csv');
-estimateGeneratorFromCsv('gen.csv', struct('pinn', true));
 ```
+
+### Gerçek `microgrid_case5.slx` kaydı (yerel MATLAB + Simulink)
+
+Tek betik çözücüyü ayarlar, To Workspace ekler, Bus 3'e yumuşak Pm basamağı koyar, simülasyonu koşar, CSV yazar, LS tahminini basar:
+
+```matlab
+cd('...\PINN-for-Microgrid-and-Power-Distribution-Systems\IEEE5Bus_Generator_HD\matlab')
+runSimulinkGeneratorRecord
+% 10 s, ode14x @ 50 us, Bus3 Pm +%8 (0.1 s rampa), git commit (push yok)
+
+runSimulinkGeneratorRecord(struct('StopTime', 10, 'pmStepFrac', 0.08, ...
+    'rampSec', 0.1, 'gitCommit', true, 'gitPush', true))
+```
+
+`ode4` kullanmayın. Iraksama olursa `D_pu=30` (o zaman bulunan D tasarım 1.5 değil ~30 olur) veya `pmStepFrac=0.05`, `StopTime=2`.
+
+Zaten `out` varsa simülasyonu tekrar koşmadan:
+
+```matlab
+exportLoggedSimulinkOut(out, struct('Sbase', [210 520 600], 'gitPush', true))
+```
+
+Çıktı: `outputs/data/Simulink_SM_Bus{1,3,5}.csv` ve `outputs/simulink_HD_estimates.csv`.
 
 Kodlar:
 
 - `case5SwingSim.m`: 5 baralı ağ + 3 klasik makine benzetimi (RK4). Seçenekler: H, D, bozucu (`pmFun`, `loadFun`), gürültü.
 - `estimateHD_LS.m`: doğrudan en küçük kareler. Hızlı ve temiz veride en doğru yöntem.
 - `estimateHD_PINN.m`: `trainSwingPINN.m` için küçük hız sapmalarına uygun ölçekleme ve otomatik Fourier sayısı.
+- `runSimulinkGeneratorRecord.m`: yerel MATLAB'de .slx ayarla + koş + CSV + (isteğe bağlı) git.
+- `exportLoggedSimulinkOut.m`: mevcut `out` (Pm_MW_b* / Pe_MW_b* / w_pu_b*) → CSV.
 - `exportGeneratorCsv.m`, `loadGeneratorCsv.m`, `simulinkLogToCsv.m`, `estimateGeneratorFromCsv.m`: G/Ç.
 
 ## Sonuçlar (`outputs/generator_HD_estimates.csv`, gerçek H=5.5, D=1.5)
