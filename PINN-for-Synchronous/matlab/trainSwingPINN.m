@@ -28,6 +28,7 @@ opts = fillDefault(opts, 'hidden', 50);
 opts = fillDefault(opts, 'dampingRef', 0.0);
 opts = fillDefault(opts, 'nFourier', 12);
 opts = fillDefault(opts, 'physicsWeight', 1.0);
+opts = fillDefault(opts, 'residualScale', 1.0);
 opts = fillDefault(opts, 'verbose', true);
 
 t = t(:)';
@@ -44,6 +45,7 @@ ctx.Yd = Yd;
 ctx.N = N;
 ctx.sizes = [size(ctx.X, 1), opts.hidden, opts.hidden, opts.hidden, 3];
 ctx.dampingRef = opts.dampingRef;
+ctx.rs = opts.residualScale;
 
 theta = initTheta(ctx.sizes, opts.initH, opts.initD);
 nTheta = numel(theta);
@@ -118,11 +120,11 @@ dwdt = (ctx.G * w')';
 r = Y(1, :) - Y(3, :) - 2 * H * dwdt - D * (w - ctx.dampingRef);
 
 Ldata = mean(mean(((Y - ctx.Yd) ./ ctx.scale) .^ 2));
-Lphy = mean(r .^ 2);
+Lphy = mean(r .^ 2) / ctx.rs ^ 2;
 L = Ldata + ctx.wPhys * Lphy;
 
 gY = 2 * (Y - ctx.Yd) ./ (ctx.scale .^ 2) / numel(Y);
-gR = ctx.wPhys * 2 * r / ctx.N;
+gR = ctx.wPhys * 2 * r / ctx.rs ^ 2 / ctx.N;
 gY(1, :) = gY(1, :) + gR;
 gY(3, :) = gY(3, :) - gR;
 gY(2, :) = gY(2, :) - 2 * H * (ctx.G' * gR')' - D * gR;
