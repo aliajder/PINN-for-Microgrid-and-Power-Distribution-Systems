@@ -44,19 +44,22 @@
 %[text] - Çıkış dönüşümü: ilk ve son ölçüm noktalarını bir doğru ile birleştirir; ağ yalnızca bu doğrudaki sapmayı öğrenir. Uç noktalar böylece fiziğe zorlanmadan veriye kilitlenir. \
 %%
 %[text] ## 4. Klasörleri ve bir makine kaydını hazırlayın
-%[text] Aşağıdaki kod bu Live Script'in klasörünü yola ekler. Veriler depodaki `data/synchronous-machine` altındadır. Dosya adındaki `H1.5D0.25` ifadesi, RTDS modelinde ayarlanan **gerçek** $H$ ve $D$'dir; bunları doğruluk kontrolü için kullanırız.
-thisDir = fileparts(mfilename('fullpath'));
-if isempty(thisDir)
-    thisDir = pwd;
-end
-addpath(thisDir);
-repoRoot = fileparts(fileparts(thisDir));
-dataDir = fullfile(repoRoot, 'data', 'synchronous-machine');
+%[text] Live Editor bazen `mfilename` ile geçici bir klasör döndürür; o yüzden yol **bu betikten değil**, yanındaki `loadSyncCsv.m` dosyasından bulunur. `setupSwingPinnPaths` hem yardımcı fonksiyonları MATLAB yoluna ekler hem CSV klasörünü arar.
+%[text] Desteklenen iki yerleşim:
+%[text] - Git deposu: `PINN-for-Synchronous/matlab/*.m` ve `data/synchronous-machine/*.csv`
+%[text] - Tek klasör (sizin düzeniniz): `Documents\matlab\*.m` ve `Documents\matlab\data\synchronous-machine\*.csv` \
+%[text] `loadSyncCsv.m`, `trainSwingPINN.m` ve `setupSwingPinnPaths.m` **Live Script ile aynı klasörde** olmalıdır. Bölüm 5'i tek başına çalıştırsanız bile yol yeniden kurulur.
+[matlabDir, dataDir] = setupSwingPinnPaths();
 ornekDosya = fullfile(dataDir, '1208_SyncOn_H1.5D0.25.csv');
+fprintf('Fonksiyon klasoru: %s\n', matlabDir);
+fprintf('Veri klasoru: %s\n', dataDir);
+fprintf('Ornek dosya: %s\n', ornekDosya);
 %%
 %[text] ## 5. Ölçümü yükleyin ve inceleyin
 %[text] CSV'ler iki farklı RTDS isimlendirmesi taşıyabilir. `loadSyncCsv` şu öncelikle hız kolonunu seçer: `w_sync`, yoksa `WPU`, yoksa `TESTSPDOUT`. Tork için `Te_sync` veya `TESTTELECT`.
 %[text] Zaman ekseninde $T_m$, $\\omega$ ve $T_e$'ye bakın. Senkronizasyon olayında hız $1$ pu çevresinde salınır; elektriksel tork ise ani bir sıçrama yapabilir. PINN tam da bu geçici rejimden $D$'yi okumaya çalışır.
+[matlabDir, dataDir] = setupSwingPinnPaths();
+ornekDosya = fullfile(dataDir, '1208_SyncOn_H1.5D0.25.csv');
 [t, Y, gercekH, gercekD] = loadSyncCsv(ornekDosya, 0, 1);
 Tm = Y(:, 1);
 w = Y(:, 2);
@@ -86,6 +89,7 @@ fprintf('Ortalama |artik| (D=1)      = %.4f\n', mean(abs(rYanlisD)));
 %[text] ## 7. PINN'i eğitin: $H$ ve $D$ öğrenilsin
 %[text] Ağ $T_m$, $\\omega$, $T_e$'yi zamana uydururken fizik kaybı $H$ ve $D$'yi de Adam ile günceller. Başlangıç tahmini her ikisi için $1$'dir.
 %[text] **İterasyon** kaydırıcısı kısa bir deneme içindir (canlı derste 150–400 yeter). Daha iyi $D$ için 2000–4000 deneyin. Bu Cloud / Octave doğrulamasında kısa bütçe, tahminin *çalıştığını* gösterir; lisans projesinde iterasyonu artırmak sizin işinizdir.
+[matlabDir, dataDir] = setupSwingPinnPaths();
 iterasyonSayisi = 200; %[control:slider:iterD]{"position":[20,22]}
 ogrenmeOrani = 1e-3;
 adim = 2;
@@ -115,6 +119,7 @@ title('H ve D ogrenme egisi');
 %%
 %[text] ## 9. İsterseniz başka bir makineyi de deneyin
 %[text] Aynı fizik, farklı $H$–$D$ çiftleri ve farklı olaylar (yük değişimi `LdChange` veya senkronizasyon `SyncOn`) için geçerlidir. Aşağıda sönümsüz bir vaka ($D=0$) çalışır. $D=0$ iken bağıl hata tanımsızdır; o zaman **mutlak hatayı** kullanırız: $|\\hat{D}-0|$.
+[matlabDir, dataDir] = setupSwingPinnPaths();
 ikinciDosya = fullfile(dataDir, '1208_LdChange_H1.0D0.0.csv');
 [t2, Y2, gercekH2, gercekD2] = loadSyncCsv(ikinciDosya, 0, 1);
 [tahminH2, tahminD2] = trainSwingPINN(t2(1:adim:end), Y2(1:adim:end, :), egitim);

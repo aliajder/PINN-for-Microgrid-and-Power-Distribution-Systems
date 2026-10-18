@@ -7,11 +7,8 @@ function results = runEstimateMachineD(varargin)
 %
 % From MATLAB locally: add this folder to the path, then call this function.
 
-thisDir = fileparts(mfilename('fullpath'));
-repoRoot = fileparts(fileparts(thisDir));
-addpath(thisDir);
-
-opts = parseArgs(varargin, repoRoot);
+[matlabDir, dataDir] = setupSwingPinnPaths();
+opts = parseArgs(varargin, matlabDir, dataDir);
 if ~exist(opts.outputDir, 'dir')
     mkdir(opts.outputDir);
 end
@@ -86,7 +83,7 @@ end
 fclose(fid);
 end
 
-function opts = parseArgs(args, repoRoot)
+function opts = parseArgs(args, matlabDir, dataDir)
 opts.iterations = 1000;
 opts.lr = 1e-3;
 opts.period = 200;
@@ -94,8 +91,8 @@ opts.st = 0;
 opts.et = 1;
 opts.stride = 2;
 opts.cases = {};
-opts.dataDir = fullfile(repoRoot, 'data', 'synchronous-machine');
-opts.outputDir = fullfile(repoRoot, 'results');
+opts.dataDir = dataDir;
+opts.outputDir = fullfile(matlabDir, 'results');
 i = 1;
 while i <= numel(args)
     key = lower(args{i});
