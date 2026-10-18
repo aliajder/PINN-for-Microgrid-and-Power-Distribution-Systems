@@ -45,6 +45,11 @@ end
 
 function cands = uniqueCandidates()
 cands = {};
+try
+    active = matlab.desktop.editor.getActiveFilename;
+    cands = appendIfNonempty(cands, fileparts(active));
+catch
+end
 here = fileparts(mfilename('fullpath'));
 cands = appendIfNonempty(cands, here);
 cands = appendIfNonempty(cands, pwd);

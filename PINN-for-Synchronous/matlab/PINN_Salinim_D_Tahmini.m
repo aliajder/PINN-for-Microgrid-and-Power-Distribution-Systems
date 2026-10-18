@@ -48,7 +48,12 @@
 %[text] Desteklenen iki yerleşim:
 %[text] - Git deposu: `PINN-for-Synchronous/matlab/*.m` ve `data/synchronous-machine/*.csv`
 %[text] - Tek klasör: `Documents\matlab\*.m` ve `Documents\matlab\data\synchronous-machine\*.csv` \
-%[text] `loadSyncCsv.m`, `trainSwingPINN.m`, `parseTrueHD.m` ve `setupSwingPinnPaths.m` **Live Script ile aynı klasörde** olmalıdır.
+%[text] `loadSyncCsv.m` ve `trainSwingPINN.m` **Live Script ile aynı klasörde** olmalıdır. Yol kuran fonksiyon bu dosyanın sonundadır; ayrı bir `setupSwingPinnPaths.m` şart değildir. Yine de Live Editor açık dosyanın klasörünü MATLAB yoluna ekler.
+try
+    addpath(fileparts(matlab.desktop.editor.getActiveFilename));
+catch
+end
+addpath(pwd);
 [matlabDir, dataDir] = setupSwingPinnPaths();
 ornekDosya = fullfile(dataDir, '1208_SyncOn_H1.5D0.25.csv');
 fprintf('Fonksiyon klasoru: %s\n', matlabDir);
@@ -58,6 +63,11 @@ fprintf('Ornek dosya: %s\n', ornekDosya);
 %[text] ## 5. Ölçümü yükleyin ve inceleyin
 %[text] CSV'ler iki farklı RTDS isimlendirmesi taşıyabilir. `loadSyncCsv` hız kolonunu şu öncelikle seçer: `w_sync`, yoksa `WPU`, yoksa `TESTSPDOUT`. Tork için `Te_sync` veya `TESTTELECT`.
 %[text] Aşağıda üç sinyal ayrı paneldedir. Neden? $\\omega$, 1 pu çevresinde yalnızca binde birler mertebesinde değişir; $T_m$ ve $T_e$ ile aynı eksende çizilirse düz bir çizgi gibi görünür. Ortadaki panelde $\\omega-1$ çizilmiştir.
+try
+    addpath(fileparts(matlab.desktop.editor.getActiveFilename));
+catch
+end
+addpath(pwd);
 [matlabDir, dataDir] = setupSwingPinnPaths();
 ornekDosya = fullfile(dataDir, '1208_SyncOn_H1.5D0.25.csv');
 [t, Y, gercekH, gercekD] = loadSyncCsv(ornekDosya, 0, 1);
@@ -105,6 +115,11 @@ fprintf('En kucuk kareler: H = %.4f, D = %.4f  (gercek: H = %.2f, D = %.2f)\n', 
 %[text] ## 8. PINN'i eğitin: $H$ ve $D$ öğrenilsin
 %[text] **Adam adımı** ağın eğrileri öğrenmesi içindir (ısınma). **L-BFGS adımı** fizik kaybını da açar ve $H$, $D$ bu aşamada yerine oturur. Eğitim bir RTDS vakası için birkaç on saniye sürer.
 %[text] Çok küçük L-BFGS sayısıyla (örneğin 300) $H$ ve $D$ henüz başlangıç değerleri 1'e yakın kalabilir; bu bir hata değil, optimizasyonun bitmemesidir. Kaydırıcıyı artırıp yeniden çalıştırın.
+try
+    addpath(fileparts(matlab.desktop.editor.getActiveFilename));
+catch
+end
+addpath(pwd);
 [matlabDir, dataDir] = setupSwingPinnPaths();
 iterasyonSayisi = 1000; %[control:slider:iterD]{"position":[19,23]}
 lbfgsAdimi = 3000; %[control:slider:lbfgsC]{"position":[14,18]}
@@ -140,6 +155,11 @@ ylabel('Toplam kayip L');
 %%
 %[text] ## 10. İsterseniz başka bir makineyi de deneyin
 %[text] Aynı fizik, farklı $H$–$D$ çiftleri ve farklı olaylar (yük değişimi `LdChange` veya senkronizasyon `SyncOn`) için geçerlidir. Aşağıda sönümsüz bir vaka ($D=0$) çalışır. $D=0$ iken bağıl hata tanımsızdır; o zaman **mutlak hatayı** kullanırız: $|\\hat{D}-0|$.
+try
+    addpath(fileparts(matlab.desktop.editor.getActiveFilename));
+catch
+end
+addpath(pwd);
 [matlabDir, dataDir] = setupSwingPinnPaths();
 ikinciDosya = fullfile(dataDir, '1208_LdChange_H1.0D0.0.csv');
 [t2, Y2, gercekH2, gercekD2] = loadSyncCsv(ikinciDosya, 0, 1);
@@ -171,6 +191,75 @@ fprintf('LdChange H1.0 D0.0 -> tahmin H = %.3f, tahmin D = %.3f (gercek D = %.3f
 %[text] 2. L-BFGS adımını 300, 1000 ve 3000 yapın. $\\hat{H}$ ve $\\hat{D}$ hangi adımda gerçek değere oturuyor?
 %[text] 3. `1208_SyncOn_H1.0D0.0.csv` ile deneyin ($D=0$). Hata neden $D=0.25$ vakasından büyük görünüyor?
 %[text] 4. Bölüm 7'deki en küçük kareler yöntemine $\\dot{\\omega}$ için %1 rastgele gürültü ekleyin. $\\hat{H}$ ne kadar bozuluyor? Bu, PINN'in neden anlamlı olduğunu gösterir. \
+function [matlabDir, dataDir] = setupSwingPinnPaths()
+% Live Script icinde tanimlidir; ayri dosya olmasa da calisir.
+csvName = '1208_SyncOn_H1.5D0.25.csv';
+cands = {};
+try
+    active = matlab.desktop.editor.getActiveFilename;
+    if ~isempty(active)
+        cands{end + 1} = fileparts(active);
+    end
+catch
+end
+mf = mfilename('fullpath');
+if ~isempty(mf)
+    cands{end + 1} = fileparts(mf);
+end
+cands{end + 1} = pwd;
+home = getenv('USERPROFILE');
+if isempty(home)
+    home = getenv('HOME');
+end
+if ~isempty(home)
+    cands{end + 1} = fullfile(home, 'Documents', 'matlab');
+    cands{end + 1} = fullfile(home, 'Documents', 'MATLAB');
+end
+matlabDir = '';
+for i = 1:numel(cands)
+    if isempty(cands{i})
+        continue
+    end
+    if exist(fullfile(cands{i}, 'loadSyncCsv.m'), 'file') == 2
+        matlabDir = cands{i};
+        break
+    end
+end
+if isempty(matlabDir)
+    w = which('loadSyncCsv');
+    if ~isempty(w)
+        matlabDir = fileparts(w);
+    end
+end
+if isempty(matlabDir)
+    error(['loadSyncCsv.m bulunamadi. PINN_Salinim_D_Tahmini.m ile ayni klasore ' ...
+        'en azindan loadSyncCsv.m ve trainSwingPINN.m koyun.']);
+end
+addpath(matlabDir);
+dataRoots = cands;
+dataRoots{end + 1} = matlabDir;
+dataRoots{end + 1} = fileparts(matlabDir);
+dataRoots{end + 1} = fileparts(fileparts(matlabDir));
+dataDir = '';
+for i = 1:numel(dataRoots)
+    if isempty(dataRoots{i})
+        continue
+    end
+    d1 = fullfile(dataRoots{i}, 'data', 'synchronous-machine');
+    d2 = fullfile(dataRoots{i}, 'synchronous-machine');
+    if exist(fullfile(d1, csvName), 'file') == 2
+        dataDir = d1;
+        break
+    elseif exist(fullfile(d2, csvName), 'file') == 2
+        dataDir = d2;
+        break
+    end
+end
+if isempty(dataDir)
+    error('Ornek CSV bulunamadi (%s). Beklenen klasor: %s', ...
+        csvName, fullfile(matlabDir, 'data', 'synchronous-machine'));
+end
+end
 
 %[appendix]{"version":"1.0"}
 %---
