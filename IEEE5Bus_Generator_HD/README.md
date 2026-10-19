@@ -2,6 +2,8 @@
 
 Amaç: `microgrid_case5.slx` modelindeki klasik senkron jeneratörlerin (Bus 1, 3, 5) atalet sabiti **H** ve sönüm katsayısı **D** değerlerini, yalnızca o jeneratörün `Tm`, `Te`, `ω` zaman serilerinden bulmak.
 
+MATLAB’den `git pull` / `git push`: **[GIT_EL_KITABI.md](GIT_EL_KITABI.md)**.
+
 ## Modelin swing denklemi (girdi dosyalarından doğrulandı)
 
 `inputs/SIMULINK/build_transmission.m` (`swing_eq`) ve `IO_CONTRACTS.md` §3.2:
