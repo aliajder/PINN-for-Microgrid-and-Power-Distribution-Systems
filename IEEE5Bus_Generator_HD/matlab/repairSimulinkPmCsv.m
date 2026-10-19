@@ -1,7 +1,8 @@
 function repairSimulinkPmCsv(csvPath, Sbase, pm0, frac, t0, rampt)
 %REPAIRSIMULINKPMCSV  Eski kayitta Tm'nin Pmech_MW (sabit) kalmasi hatasini duzeltir.
-%   Bus 3, +%8 rampa, Sbase=520, pm0=323.49 icin:
-%     repairSimulinkPmCsv('../outputs/data/Simulink_SM_Bus3.csv', 520, 323.49, 0.08, 1, 0.1)
+%   Eski koşuda Rate Limiter eğimi hatalıydı (frac/rampa): gerçek rampa süresi
+%   rampt = rampa/frac = 0.1/0.08 = 1.25 s oldu. 5-bara Bus 3 kaydı için:
+%     repairSimulinkPmCsv('../outputs/data/Simulink_SM_Bus3.csv', 520, 323.49, 0.08, 1, 1.25)
 %     estimateGeneratorFromCsv('../outputs/data/Simulink_SM_Bus3.csv')
 if nargin < 6, rampt = 0.1; end
 [t, Tm, Te, w] = loadGeneratorCsv(csvPath); %#ok<ASGLU>

@@ -32,6 +32,13 @@ opts = dfl(opts, 'pinn', false);
 opts = dfl(opts, 'gitCommit', true);
 opts = dfl(opts, 'gitPush', false);
 opts = dfl(opts, 'openModel', false);
+opts = dfl(opts, 'slx', '');                 % bos = inputs/SIMULINK/microgrid_case5.slx
+opts = dfl(opts, 'buses', [1 3 5]);          % SM_Bus<k> alt sistem numaralari
+opts = dfl(opts, 'outRoot', '');             % bos = IEEE5Bus_Generator_HD
+opts = dfl(opts, 'csvPrefix', 'Simulink_SM_Bus');
+opts = dfl(opts, 'summaryName', 'simulink_HD_estimates.csv');
+opts = dfl(opts, 'pmStepMW', []);            % doluysa Pm basamagi mutlak MW (kondansator icin frac anlamsiz)
+opts = dfl(opts, 'extraParams', {});         % {dosya.mat, 'degisken'; ...} base workspace'e yuklenir
 
 if exist('sim', 'file') ~= 2 && exist('sim', 'builtin') ~= 5
     error(['Bu betik MATLAB/Simulink ister. Octave veya Cloud Agent''da kosmaz. ', ...
@@ -43,7 +50,9 @@ setupGeneratorPaths();
 root = fileparts(here);                       % IEEE5Bus_Generator_HD
 repo = fileparts(root);
 inDir = fullfile(root, 'inputs');
-slx = fullfile(inDir, 'SIMULINK', 'microgrid_case5.slx');
+slx = opts.slx;
+if isempty(slx), slx = fullfile(inDir, 'SIMULINK', 'microgrid_case5.slx'); end
+if isempty(opts.outRoot), opts.outRoot = root; end
 if exist(slx, 'file') ~= 2
     error('Model bulunamadi: %s', slx);
 end
@@ -51,8 +60,13 @@ end
 fprintf('=== Simulink jenerator kaydi ===\n');
 fprintf('  model     : %s\n', slx);
 fprintf('  StopTime  : %g s   solver %s @ %g s\n', opts.StopTime, opts.solver, opts.dt);
-fprintf('  Pm step   : Bus %d  %+g%%  t=%g s  rampa=%g s\n', ...
-    opts.pmBus, 100*opts.pmStepFrac, opts.pmStepTime, opts.rampSec);
+if isempty(opts.pmStepMW)
+    fprintf('  Pm step   : Bus %d  %+g%%  t=%g s  rampa=%g s\n', ...
+        opts.pmBus, 100*opts.pmStepFrac, opts.pmStepTime, opts.rampSec);
+else
+    fprintf('  Pm step   : Bus %d  %+g MW  t=%g s  rampa=%g s\n', ...
+        opts.pmBus, opts.pmStepMW, opts.pmStepTime, opts.rampSec);
+end
 
 % --- workspace parametreleri ---
 mgFile = fullfile(inDir, 'mg_params.mat');
@@ -60,6 +74,10 @@ S = load(mgFile);
 assignin('base', 'mg', S.mg);
 if isfield(S, 'f0'), f0 = S.f0; else, f0 = S.mg.base.fbase; end
 assignin('base', 'f0', f0);
+for ip = 1:size(opts.extraParams, 1)
+    Sx = load(opts.extraParams{ip, 1});
+    assignin('base', opts.extraParams{ip, 2}, Sx.(opts.extraParams{ip, 2}));
+end
 
 [mdlPath, mdlName, ~] = fileparts(slx);
 load_system(slx);
@@ -75,10 +93,11 @@ set_param(mdlName, 'SolverType', 'Fixed-step', ...
     'SaveOutput', 'on', ...
     'SignalLogging', 'on');
 
-buses = [1 3 5];
-sm = cell(1, 3);
-Sbase = zeros(1, 3);
-for k = 1:3
+buses = opts.buses;
+nSM = numel(buses);
+sm = cell(1, nSM);
+Sbase = zeros(1, nSM);
+for k = 1:nSM
     sm{k} = sprintf('%s/TransmissionNetwork/SM_Bus%d', mdlName, buses(k));
     if getSimulinkBlockHandle(sm{k}) <= 0
         error('Alt sistem yok: %s  (.slx TransmissionNetwork/SM_Bus* icermiyor olabilir)', sm{k});
@@ -97,7 +116,7 @@ end
 
 kPm = find(buses == opts.pmBus, 1);
 if isempty(kPm), error('pmBus 1, 3 veya 5 olmali'); end
-installPmRamp(sm{kPm}, opts.pmStepFrac, opts.pmStepTime, opts.rampSec);
+installPmRamp(sm{kPm}, opts.pmStepFrac, opts.pmStepTime, opts.rampSec, opts.pmStepMW);
 % Kayit Pmech_MW constant'ta kalmasin; swing'e giden Pm_sum kaydedilsin.
 logPm = sprintf('log_Pm_b%d', opts.pmBus);
 disconnectIn(sm{kPm}, logPm, 1);
@@ -115,23 +134,23 @@ catch err
 end
 fprintf('Simulasyon bitti (%.1f s duvar saati).\n', toc);
 
-dataDir = fullfile(root, 'outputs', 'data');
+dataDir = fullfile(opts.outRoot, 'outputs', 'data');
 if exist(dataDir, 'dir') ~= 7, mkdir(dataDir); end
-sumPath = fullfile(root, 'outputs', 'simulink_HD_estimates.csv');
+sumPath = fullfile(opts.outRoot, 'outputs', opts.summaryName);
 fid = fopen(sumPath, 'w');
 fprintf(fid, 'bus,Sbase_MW,wSpan,identifiable,LS_H,LS_D,c,csv\n');
 
 result.simOut = simOut;
 result.Sbase = Sbase;
-result.csv = cell(1, 3);
-for k = 1:3
+result.csv = cell(1, nSM);
+for k = 1:nSM
     b = buses(k);
     Pm = tsget(simOut, sprintf('Pm_MW_b%d', b));
     Pe = tsget(simOut, sprintf('Pe_MW_b%d', b));
     w  = tsget(simOut, sprintf('w_pu_b%d', b));
     t = Pm.Time(:);
     f_Hz = f0 * w.Data(:);
-    csv = fullfile(dataDir, sprintf('Simulink_SM_Bus%d.csv', b));
+    csv = fullfile(dataDir, sprintf('%s%d.csv', opts.csvPrefix, b));
     simulinkLogToCsv(t, Pm.Data(:), Pe.Data(:), f_Hz, Sbase(k), f0, csv);
     est = estimateGeneratorFromCsv(csv, struct('pinn', opts.pinn, 'dampingRef', 1));
     result.csv{k} = csv;
@@ -146,7 +165,7 @@ fprintf('Ozet: %s\n', sumPath);
 try, close_system(mdlName, 0); catch, end
 
 if opts.gitCommit
-    gitPublish(repo, opts.gitPush);
+    gitPublish(repo, opts.gitPush, opts.outRoot, opts.csvPrefix, opts.summaryName);
 end
 end
 
@@ -199,11 +218,12 @@ if ~already
 end
 end
 
-function installPmRamp(smPath, frac, t0, rampt)
+function installPmRamp(smPath, frac, t0, rampt, deltaMW)
 % Pmech_MW constant kalir; Step + RateLimiter + Sum ile (1 -> 1+frac).
 % To Workspace (Pmech_MW'den T kablo) koparilmaz. Branched kabloda
 % delete_line('src','dst') basarisiz olur; Swing_Eq girisinin line handle'i silinir.
-if frac == 0, return; end
+if nargin < 5, deltaMW = []; end
+if isempty(deltaMW) && frac == 0, return; end
 ensureBlk(smPath, 'Pm_step', 'simulink/Sources/Step', [40 330 80 360]);
 ensureBlk(smPath, 'Pm_ramp', 'simulink/Discontinuities/Rate Limiter', [100 330 150 360]);
 ensureBlk(smPath, 'Pm_gain', 'simulink/Math Operations/Gain', [170 330 210 360]);
@@ -220,13 +240,14 @@ connectLine(smPath, 'Pm_step/1', 'Pm_ramp/1');
 connectLine(smPath, 'Pm_ramp/1', 'Pm_gain/1');
 connectLine(smPath, 'Pm_gain/1', 'Pm_sum/2');
 
-rising = max(abs(frac) / max(rampt, 1e-6), 1e-9);
+rising = 1 / max(rampt, 1e-6);   % Step 0->1 birim basamak; sinirlayici 1/rampa [1/s]
 set_param([smPath '/Pm_step'], 'Time', num2str(t0), 'Before', '0', 'After', '1');
 set_param([smPath '/Pm_ramp'], 'RisingSlewLimit', num2str(rising), ...
     'FallingSlewLimit', num2str(-rising));
 pm0 = str2double(get_param([smPath '/Pmech_MW'], 'Value'));
-set_param([smPath '/Pm_gain'], 'Gain', num2str(pm0 * frac, 16));
-fprintf('  Pm rampa: %g MW -> %g MW (Bus alt sistemi %s)\n', pm0, pm0*(1+frac), smPath);
+if isempty(deltaMW), deltaMW = pm0 * frac; end
+set_param([smPath '/Pm_gain'], 'Gain', num2str(deltaMW, 16));
+fprintf('  Pm rampa: %g MW -> %g MW (%.3g s, alt sistem %s)\n', pm0, pm0 + deltaMW, rampt, smPath);
 end
 
 function ensureBlk(smPath, name, lib, pos)
@@ -267,10 +288,11 @@ end
 add_line(smPath, srcPort, dstPort, 'autorouting', 'on');
 end
 
-function gitPublish(repo, doPush)
+function gitPublish(repo, doPush, outRoot, csvPrefix, summaryName)
 if exist(repo, 'dir') ~= 7, warning('repo kok bulunamadi'); return; end
 cmd = @(c) system(sprintf('git -C "%s" %s', repo, c));
-cmd('add IEEE5Bus_Generator_HD/outputs/data/Simulink_SM_Bus*.csv IEEE5Bus_Generator_HD/outputs/simulink_HD_estimates.csv');
+relRoot = strrep(outRoot(numel(repo)+2:end), filesep, '/');
+cmd(sprintf('add %s/outputs/data/%s*.csv %s/outputs/%s', relRoot, csvPrefix, relRoot, summaryName));
 [st, out] = cmd('diff --cached --stat');
 fprintf('%s', out);
 if st ~= 0, return; end
