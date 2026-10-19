@@ -1,0 +1,4 @@
+bus,Sbase_MW,wSpan,identifiable,LS_H,LS_D,c,csv
+1,252.000000,4.466519e-01,1,6.066527,1.375286,-0.0927629,C:\Users\aliaj\Documents\PINN-for-Microgrid-and-Power-Distribution-Systems\IEEE5Bus_Generator_HD\outputs\data\Simulink_SM_Bus1.csv
+3,520.000000,3.133373e-01,1,5.996979,1.762869,0.0322563,C:\Users\aliaj\Documents\PINN-for-Microgrid-and-Power-Distribution-Systems\IEEE5Bus_Generator_HD\outputs\data\Simulink_SM_Bus3.csv
+5,600.000000,3.987017e-01,1,6.158774,1.347481,-0.0750542,C:\Users\aliaj\Documents\PINN-for-Microgrid-and-Power-Distribution-Systems\IEEE5Bus_Generator_HD\outputs\data\Simulink_SM_Bus5.csv
