@@ -13,6 +13,13 @@ cd('C:\Users\aliaj\Documents\PINN-for-Microgrid-and-Power-Distribution-Systems')
 Dal: `cursor/swing-pinn-d-estimate-ef5e`  
 (`main`’de bu betikler yok / eksik olabilir.)
 
+İlk commit’ten **bir kez** (GitHub’daki ad ve e-posta; commit kimliği yoksa MATLAB `Author identity unknown` der):
+
+```matlab
+!git config --global user.name "Ad Soyad"
+!git config --global user.email "github-epostaniz@ornek.com"
+```
+
 ---
 
 ## 1) Bilgisayara al (PULL) — senden GitHub’a bak

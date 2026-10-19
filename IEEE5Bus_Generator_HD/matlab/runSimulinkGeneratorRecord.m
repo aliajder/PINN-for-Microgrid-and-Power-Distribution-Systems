@@ -98,6 +98,10 @@ end
 kPm = find(buses == opts.pmBus, 1);
 if isempty(kPm), error('pmBus 1, 3 veya 5 olmali'); end
 installPmRamp(sm{kPm}, opts.pmStepFrac, opts.pmStepTime, opts.rampSec);
+% Kayit Pmech_MW constant'ta kalmasin; swing'e giden Pm_sum kaydedilsin.
+logPm = sprintf('log_Pm_b%d', opts.pmBus);
+disconnectIn(sm{kPm}, logPm, 1);
+connectLine(sm{kPm}, 'Pm_sum/1', [logPm '/1']);
 
 fprintf('Simulasyon basliyor...\n');
 tic;
@@ -275,8 +279,21 @@ if st2 == 0
     fprintf('Git: yeni CSV yok (zaten commitli).\n');
     return;
 end
+[~, uname] = cmd('config user.name');
+if isempty(strtrim(uname))
+    fprintf(2, ['Git commit atlandi: kimlik yok. Bir kez:\n', ...
+        '  !git config --global user.name "Ad Soyad"\n', ...
+        '  !git config --global user.email "github-epostaniz@ornek.com"\n', ...
+        'Sonra: !git commit ve !git push  (GIT_EL_KITABI.md)\n']);
+    return;
+end
 msg = sprintf('Add Simulink SM_Bus H/D recordings (%s)', datestr(now, 31));
-cmd(sprintf('commit -m "%s"', strrep(msg, '"', '''')));
+[stc, outc] = cmd(sprintf('commit -m "%s"', strrep(msg, '"', '''')));
+fprintf('%s', outc);
+if stc ~= 0
+    fprintf(2, 'Git commit basarisiz (dosyalar yine outputs/data altinda).\n');
+    return;
+end
 fprintf('Git commit: %s\n', msg);
 if doPush
     [stp, outp] = cmd('push');
