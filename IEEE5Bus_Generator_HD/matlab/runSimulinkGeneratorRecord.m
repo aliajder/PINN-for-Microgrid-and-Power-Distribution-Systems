@@ -196,30 +196,26 @@ end
 end
 
 function installPmRamp(smPath, frac, t0, rampt)
-% Pmech_MW constant kalir; Step + RateLimiter + Sum ile carpim (1 -> 1+frac).
+% Pmech_MW constant kalir; Step + RateLimiter + Sum ile (1 -> 1+frac).
+% To Workspace (Pmech_MW'den T kablo) koparilmaz. Branched kabloda
+% delete_line('src','dst') basarisiz olur; Swing_Eq girisinin line handle'i silinir.
 if frac == 0, return; end
-need = {'Pm_step', 'Pm_ramp', 'Pm_gain', 'Pm_sum'};
-have = true;
-for i = 1:numel(need)
-    if getSimulinkBlockHandle([smPath '/' need{i}]) <= 0, have = false; end
+ensureBlk(smPath, 'Pm_step', 'simulink/Sources/Step', [40 330 80 360]);
+ensureBlk(smPath, 'Pm_ramp', 'simulink/Discontinuities/Rate Limiter', [100 330 150 360]);
+ensureBlk(smPath, 'Pm_gain', 'simulink/Math Operations/Gain', [170 330 210 360]);
+ensureBlk(smPath, 'Pm_sum', 'simulink/Math Operations/Sum', [140 40 160 70]);
+set_param([smPath '/Pm_sum'], 'Inputs', '++');
+
+% Swing_Eq 1. giris hâlâ Pmech_MW (veya baska) ise kopar, Sum'a bagla.
+if ~srcIs(smPath, 'Swing_Eq', 1, 'Pm_sum')
+    disconnectIn(smPath, 'Swing_Eq', 1);
+    connectLine(smPath, 'Pm_sum/1', 'Swing_Eq/1');
 end
-if ~have
-    add_block('simulink/Sources/Step', [smPath '/Pm_step'], ...
-        'Position', [40 330 80 360]);
-    add_block('simulink/Discontinuities/Rate Limiter', [smPath '/Pm_ramp'], ...
-        'Position', [100 330 150 360]);
-    add_block('simulink/Math Operations/Gain', [smPath '/Pm_gain'], ...
-        'Position', [170 330 210 360]);
-    add_block('simulink/Math Operations/Sum', [smPath '/Pm_sum'], ...
-        'Inputs', '++', 'Position', [140 40 160 70]);
-    % Pmech_MW -> Swing_Eq bagini Sum'a yonlendir (To Workspace kablosuna dokunma)
-    try, delete_line(smPath, 'Pmech_MW/1', 'Swing_Eq/1'); catch, end
-    add_line(smPath, 'Pmech_MW/1', 'Pm_sum/1', 'autorouting', 'on');
-    add_line(smPath, 'Pm_sum/1', 'Swing_Eq/1', 'autorouting', 'on');
-    add_line(smPath, 'Pm_step/1', 'Pm_ramp/1', 'autorouting', 'on');
-    add_line(smPath, 'Pm_ramp/1', 'Pm_gain/1', 'autorouting', 'on');
-    add_line(smPath, 'Pm_gain/1', 'Pm_sum/2', 'autorouting', 'on');
-end
+connectLine(smPath, 'Pmech_MW/1', 'Pm_sum/1');
+connectLine(smPath, 'Pm_step/1', 'Pm_ramp/1');
+connectLine(smPath, 'Pm_ramp/1', 'Pm_gain/1');
+connectLine(smPath, 'Pm_gain/1', 'Pm_sum/2');
+
 rising = max(abs(frac) / max(rampt, 1e-6), 1e-9);
 set_param([smPath '/Pm_step'], 'Time', num2str(t0), 'Before', '0', 'After', '1');
 set_param([smPath '/Pm_ramp'], 'RisingSlewLimit', num2str(rising), ...
@@ -227,6 +223,44 @@ set_param([smPath '/Pm_ramp'], 'RisingSlewLimit', num2str(rising), ...
 pm0 = str2double(get_param([smPath '/Pmech_MW'], 'Value'));
 set_param([smPath '/Pm_gain'], 'Gain', num2str(pm0 * frac, 16));
 fprintf('  Pm rampa: %g MW -> %g MW (Bus alt sistemi %s)\n', pm0, pm0*(1+frac), smPath);
+end
+
+function ensureBlk(smPath, name, lib, pos)
+p = [smPath '/' name];
+if getSimulinkBlockHandle(p) <= 0
+    add_block(lib, p, 'Position', pos);
+end
+end
+
+function disconnectIn(smPath, blk, inIdx)
+ph = get_param([smPath '/' blk], 'PortHandles');
+ln = get_param(ph.Inport(inIdx), 'Line');
+if ~isempty(ln) && ln > 0
+    delete_line(ln);
+end
+end
+
+function tf = srcIs(smPath, blk, inIdx, srcName)
+tf = false;
+ph = get_param([smPath '/' blk], 'PortHandles');
+ln = get_param(ph.Inport(inIdx), 'Line');
+if isempty(ln) || ln < 0, return; end
+src = get_param(ln, 'SrcBlockHandle');
+if isempty(src) || src < 0, return; end
+tf = strcmp(get_param(src, 'Name'), srcName);
+end
+
+function connectLine(smPath, srcPort, dstPort)
+% dstPort 'Blk/k' — giris doluysa dokunma.
+slash = find(dstPort == '/', 1, 'last');
+blk = dstPort(1:slash-1);
+k = str2double(dstPort(slash+1:end));
+ph = get_param([smPath '/' blk], 'PortHandles');
+ln = get_param(ph.Inport(k), 'Line');
+if ~isempty(ln) && ln > 0
+    return;
+end
+add_line(smPath, srcPort, dstPort, 'autorouting', 'on');
 end
 
 function gitPublish(repo, doPush)
