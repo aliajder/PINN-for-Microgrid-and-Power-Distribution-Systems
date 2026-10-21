@@ -1,0 +1,10 @@
+# Optional GeForce GTX 950M / Maxwell (SM 5.0) path.
+# Requires a driver that supports CUDA 11.8.
+#
+#   pip install -r requirements-cu118.txt --extra-index-url https://download.pytorch.org/whl/cu118
+#
+torch==2.0.1+cu118
+deepxde
+pandas
+numpy
+matplotlib

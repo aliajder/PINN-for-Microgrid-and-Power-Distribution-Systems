@@ -1,0 +1,12 @@
+file,true_H,true_D,pred_H,pred_D,rel_error_D,log_file
+1208_LdChange_H1.0D0.0.csv,1,0,0.828286,0.000219495,0.000219495,results/SYNC_variables_matlab_1208_LdChange_H1.0D0.0.dat
+1208_LdChange_H1.2D0.12.csv,1.2,0.12,0.808755,0.119835,0.00137485,results/SYNC_variables_matlab_1208_LdChange_H1.2D0.12.dat
+1208_LdChange_H1.5D0.2.csv,1.5,0.2,0.807375,0.201695,0.00847621,results/SYNC_variables_matlab_1208_LdChange_H1.5D0.2.dat
+1208_LdChange_H1.5D0.25.csv,1.5,0.25,0.872258,0.249107,0.00357142,results/SYNC_variables_matlab_1208_LdChange_H1.5D0.25.dat
+1208_LdChange_H1.8D0.2.csv,1.8,0.2,0.799564,0.198908,0.00546055,results/SYNC_variables_matlab_1208_LdChange_H1.8D0.2.dat
+1208_SyncOn_H1.0D0.0.csv,1,0,1.04673,-0.0536504,0.0536504,results/SYNC_variables_matlab_1208_SyncOn_H1.0D0.0.dat
+1208_SyncOn_H1.2D0.12.csv,1.2,0.12,1.20086,0.11866,0.0111687,results/SYNC_variables_matlab_1208_SyncOn_H1.2D0.12.dat
+1208_SyncOn_H1.5D0.1.csv,1.5,0.1,1.49815,0.100197,0.00197327,results/SYNC_variables_matlab_1208_SyncOn_H1.5D0.1.dat
+1208_SyncOn_H1.5D0.2.csv,1.5,0.2,1.47795,0.200315,0.00157667,results/SYNC_variables_matlab_1208_SyncOn_H1.5D0.2.dat
+1208_SyncOn_H1.5D0.25.csv,1.5,0.25,1.4891,0.250911,0.00364539,results/SYNC_variables_matlab_1208_SyncOn_H1.5D0.25.dat
+1208_SyncOn_H1.8D0.2.csv,1.8,0.2,1.79386,0.732188,2.66094,results/SYNC_variables_matlab_1208_SyncOn_H1.8D0.2.dat

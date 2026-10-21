@@ -38,6 +38,27 @@
 # HOW TO USE
 The example codes for both sync- and inverter-based DERs are [SYNC_MAIN.py](./PINN-for-Synchronous/SYNC_MAIN.py) and [PID_MAIN.py](./PINN-for-inverter-control-loop/PID_MAIN.py).
 
+Install CPU dependencies with `pip install -r requirements.txt`. DeepXDE uses PyTorch (`DDE_BACKEND=pytorch`). CUDA is used automatically when `torch.cuda.is_available()` is true.
+
+**Swing equation used for the labeled RTDS machines** (`data/synchronous-machine/1208_*.csv`): `2H dw/dt = Tm - Te - D*w`. The damping torque acts on `w` itself, not on `w - 1`; with the true H and D this form leaves a residual of about 0, while `D*(w-1)` leaves a residual of about D. Least squares on the measured signals recovers H and D exactly for all 11 files.
+
+**Recommended path: MATLAB** (no extra toolboxes; also works in Octave). It trains with Adam on the data, then full-batch L-BFGS on data + physics. Open the Turkish Live Script [`PINN-for-Synchronous/matlab/PINN_Salinim_D_Tahmini.m`](PINN-for-Synchronous/matlab/PINN_Salinim_D_Tahmini.m) in the Live Editor. For a batch run from the command window:
+
+```
+cd PINN-for-Synchronous/matlab
+runEstimateMachineD
+```
+
+Optional arguments: `runEstimateMachineD('iterations', 1000, 'lbfgs', 6000, 'cases', {'SyncOn_H1.0D0.0'})`. Results go to `results/D_estimates_matlab.csv`. D is within about 0.002 of the true value for 9 of the 11 machines; `SyncOn_H1.0D0.0` and `SyncOn_H1.8D0.2` need many more L-BFGS steps. H is not identifiable from the `LdChange` files because `w` barely moves there.
+
+**Python / DeepXDE** (`PINN-for-Synchronous/estimate_machine_D.py`) uses the same corrected equation (`--damping-ref 0`) but only plain Adam, with the original network and input features. It does not converge in a few thousand steps (D stays near its initial value 1), so it is a baseline, not a validated estimator:
+
+```
+python PINN-for-Synchronous/estimate_machine_D.py --iterations 4000
+```
+
+A GTX 950M / Maxwell optional install is in `requirements-cu118.txt`; current official CUDA wheels often omit that GPU, so CPU training is the supported default here.
+
 Before running, plz remember to install Torch and CUDA correctly.
 
 If any path errors occur, please check **both the absolute and relative paths** of your running environment, if the error message is related to the path for storing the model, please **create a folder named `save_model/` on your own and add the path** accordingly.

@@ -1,0 +1,11 @@
+test,pass,seconds,detail
+test_inputs_consistency,1,0.0,"Pe0/S=[0.781 0.498 0.741], Pg/S=[0.833 0.622 0.778], max bagil fark 20.0% (Bus2 MG yuku yok, sabit-Z yuk)"
+test_equilibrium,1,1.2,"max|w-1|=0.00e+00, max|Te-Tm|=0.00e+00"
+test_damping_form,1,2.5,"c=0.000102 (D=1.50), D*(w-1) formu D=1.475, yanlis D*w formu D=0.000"
+test_ls_grid,1,15.2,"6 sim x makine: en kotu bagil hata H=2.17%, D=3.48%"
+test_disturbance_types,1,13.2,"pm_step:H=5.551,D=1.475 pm_ramp:H=5.532,D=1.504 load3_step:H=5.552,D=1.477 load5_pulse:H=5.525,D=1.389 pcc_load2:H=5.552,D=1.479 | max hata H=0.9% D=7.4%"
+test_noise,1,9.9,"[nw=0e+00,nP=0e+00: H=5.55 D=1.48] [nw=1e-06,nP=1e-04: H=5.55 D=1.45] [nw=1e-05,nP=1e-03: H=5.46 D=1.24] [nw=1e-04,nP=1e-02: H=2.46 D=-0.40] "
+test_identifiability,1,5.0,"kucuk bozucu: wSpan=9.3e-09 identifiable=0; normal: wSpan=1.9e-03 identifiable=1"
+test_der_independence,1,9.9,"pcc_step_120MW:H=5.551,D=1.483 pcc_sin_60MW_0.3Hz:H=5.526,D=1.493 pcc_pulse_-80MW:H=5.533,D=1.460 | max hata H=0.9% D=2.7%"
+test_csv_roundtrip,1,1.3,"csv hata=1.0e-09, simulink-donusum hata=1.0e-09"
+test_pinn,1,37.5,"PINN H=5.665 (hata 3.0%), D=1.103 (hata 26.5%), nFourier=60"
